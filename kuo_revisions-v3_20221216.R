@@ -137,13 +137,130 @@ dev.off()
 
 
 
-ct.z.gsea <- zarkada_gsea(as.matrix(anchored.obj@assays$SCT@scale.data)[, use.samps],
-                          clust.vec = sample.ct,
-                          plot.title = 'Cell Type Clasification - Zarkada GSEA',
-                          x.title = 'Cell Type',
-                          regulon.list = zarkada.regulons)
-saveRDS(ct.z.gsea, file = 'revisions/anchored/v2_results/ct_zarkada-gsea.rds')
-jpeg('revisions/anchored/v2_results/ct_zarkada-gsea.jpg', 
-     height = 8, width = 10, units = 'in', res = 250)
-print(ct.z.gsea$plot + scale_size(range = c(5, 15)))
-dev.off()
+### redo plots for reviewers comments
+###############
+wt.gsea <- readRDS('revisions-2/WT_ct-zarkada-sea.rds')
+ko.gsea <- readRDS('revisions-2/KO_ct-zarkada-sea.rds')
+kof4.gsea <- readRDS('revisions-2/KOF4_ct-zarkada-sea.rds')
+x.title <- 'Cell Type'
+## set plot theme
+plot.theme <- theme(axis.text.x = element_text(size = 16, angle = 45, hjust=1),
+                    axis.text.y = element_text(size = 16),
+                    axis.title = element_text(size = 18),
+                    legend.text = element_text(size = 14),
+                    legend.title = element_text(size = 16),
+                    plot.title = element_text(size = 20))
+sig.cols <- c('red', 'darkgrey', 'blue')
+names(sig.cols) <- c('UP', 'NS', 'DOWN')
+## wt plot
+narnea.vecs <- wt.gsea$narnea
+plot.title <- 'WT Cell Type Classification - Zarkada NaRnEA'
+# generate dot plot
+pes.mat <- sapply(narnea.vecs, function(x) {
+  return(sapply(x, function(y) {y$pes}))
+})
+row.has.na <- apply(pes.mat, 1, function(x) {length(which(is.na(x))) > 0})
+pes.mat <- pes.mat[!row.has.na,]
+nes.mat <- sapply(narnea.vecs, function(x) {
+  return(sapply(x, function(y) {y$nes}))
+})
+row.has.na <- apply(nes.mat, 1, function(x) {length(which(is.na(x))) > 0})
+nes.mat <- nes.mat[!row.has.na,]
+# melt and add significance
+plot.df <- melt(pes.mat)
+colnames(plot.df) <- c('GS', 'Cluster', 'PES')
+plot.df$NES <- melt(nes.mat)[,3]
+plot.df$Cluster <- as.factor(plot.df$Cluster)
+pval.vec <- p.adjust(pnorm(abs(plot.df$NES), lower.tail = FALSE), method = 'BH')
+sig.vec <- (pval.vec < 0.05) * 1 * sign(plot.df$PES)
+sig.vec <- plyr::mapvalues(sig.vec, from = c(-1, 0, 1), to = c('DOWN', 'NS', 'UP'))
+plot.df$SIG <- sig.vec
+# plot
+wt.plot <- ggplot(plot.df, aes(x = Cluster, y = GS)) + 
+  geom_point(aes(fill = PES, color = SIG, size = abs(NES)), pch = 21) +
+  scale_fill_gradient2(low = 'blue', mid = 'grey', high = 'red', midpoint = 0,
+                        limits = c(-0.75, 0.5)) + 
+  scale_size_continuous(range = c(3, 10), limits = c(0, 15)) + 
+  scale_color_manual(values = sig.cols) + 
+  labs(x = x.title, y = "Gene Set", title = plot.title) +
+  guides(size = guide_legend(title = "|NES|", order = 2, override.aes = list(fill = 'darkgrey')),
+         fill = guide_colorbar(order = 1)) +
+  plot.theme
+print(wt.plot)
+ggsave('revisions-3/WT_ct-zarkada-enrichment.jpg',
+       height = 8, width = 10, units = 'in', dpi = 300)
+## KO plot
+narnea.vecs <- ko.gsea$narnea
+plot.title <- 'KO Cell Type Classification - Zarkada NaRnEA'
+# generate dot plot
+pes.mat <- sapply(narnea.vecs, function(x) {
+  return(sapply(x, function(y) {y$pes}))
+})
+row.has.na <- apply(pes.mat, 1, function(x) {length(which(is.na(x))) > 0})
+pes.mat <- pes.mat[!row.has.na,]
+nes.mat <- sapply(narnea.vecs, function(x) {
+  return(sapply(x, function(y) {y$nes}))
+})
+row.has.na <- apply(nes.mat, 1, function(x) {length(which(is.na(x))) > 0})
+nes.mat <- nes.mat[!row.has.na,]
+# melt and add significance
+plot.df <- melt(pes.mat)
+colnames(plot.df) <- c('GS', 'Cluster', 'PES')
+plot.df$NES <- melt(nes.mat)[,3]
+plot.df$Cluster <- as.factor(plot.df$Cluster)
+pval.vec <- p.adjust(pnorm(abs(plot.df$NES), lower.tail = FALSE), method = 'BH')
+sig.vec <- (pval.vec < 0.05) * 1 * sign(plot.df$PES)
+sig.vec <- plyr::mapvalues(sig.vec, from = c(-1, 0, 1), to = c('DOWN', 'NS', 'UP'))
+plot.df$SIG <- sig.vec
+# plot
+wt.plot <- ggplot(plot.df, aes(x = Cluster, y = GS)) + 
+  geom_point(aes(fill = PES, color = SIG, size = abs(NES)), pch = 21) +
+  scale_fill_gradient2(low = 'blue', mid = 'grey', high = 'red', midpoint = 0,
+                       limits = c(-0.75, 0.5)) + 
+  scale_size_continuous(range = c(3, 10), limits = c(0, 15)) + 
+  scale_color_manual(values = sig.cols) + 
+  labs(x = x.title, y = "Gene Set", title = plot.title) +
+  guides(size = guide_legend(title = "|NES|", order = 2, override.aes = list(fill = 'darkgrey')),
+         fill = guide_colorbar(order = 1)) +
+  plot.theme
+print(wt.plot)
+ggsave('revisions-3/KO_ct-zarkada-enrichment.jpg',
+       height = 8, width = 10, units = 'in', dpi = 300)
+## KOF4 plot
+narnea.vecs <- kof4.gsea$narnea
+plot.title <- 'KOF4 Cell Type Classification - Zarkada NaRnEA'
+# generate dot plot
+pes.mat <- sapply(narnea.vecs, function(x) {
+  return(sapply(x, function(y) {y$pes}))
+})
+row.has.na <- apply(pes.mat, 1, function(x) {length(which(is.na(x))) > 0})
+pes.mat <- pes.mat[!row.has.na,]
+nes.mat <- sapply(narnea.vecs, function(x) {
+  return(sapply(x, function(y) {y$nes}))
+})
+row.has.na <- apply(nes.mat, 1, function(x) {length(which(is.na(x))) > 0})
+nes.mat <- nes.mat[!row.has.na,]
+# melt and add significance
+plot.df <- melt(pes.mat)
+colnames(plot.df) <- c('GS', 'Cluster', 'PES')
+plot.df$NES <- melt(nes.mat)[,3]
+plot.df$Cluster <- as.factor(plot.df$Cluster)
+pval.vec <- p.adjust(pnorm(abs(plot.df$NES), lower.tail = FALSE), method = 'BH')
+sig.vec <- (pval.vec < 0.05) * 1 * sign(plot.df$PES)
+sig.vec <- plyr::mapvalues(sig.vec, from = c(-1, 0, 1), to = c('DOWN', 'NS', 'UP'))
+plot.df$SIG <- sig.vec
+# plot
+wt.plot <- ggplot(plot.df, aes(x = Cluster, y = GS)) + 
+  geom_point(aes(fill = PES, color = SIG, size = abs(NES)), pch = 21) +
+  scale_fill_gradient2(low = 'blue', mid = 'grey', high = 'red', midpoint = 0,
+                       limits = c(-0.75, 0.5)) + 
+  scale_size_continuous(range = c(3, 10), limits = c(0, 15)) + 
+  scale_color_manual(values = sig.cols) + 
+  labs(x = x.title, y = "Gene Set", title = plot.title) +
+  guides(size = guide_legend(title = "|NES|", order = 2, override.aes = list(fill = 'darkgrey')),
+         fill = guide_colorbar(order = 1)) +
+  plot.theme
+print(wt.plot)
+ggsave('revisions-3/KOF4_ct-zarkada-enrichment.jpg',
+       height = 8, width = 10, units = 'in', dpi = 300)
+###############
